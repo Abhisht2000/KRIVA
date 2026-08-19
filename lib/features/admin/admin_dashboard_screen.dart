@@ -6,6 +6,7 @@ import '../../services/service_providers.dart';
 import '../../models/broadcast_model.dart';
 import '../../models/domain_model.dart';
 import '../../models/user_model.dart';
+import '../../models/access_request_model.dart';
 
 class AdminDashboardScreen extends ConsumerStatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -21,7 +22,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
   }
 
   @override
@@ -32,6 +33,15 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen>
 
   @override
   Widget build(BuildContext context) {
+    final user = ref.watch(currentUserProvider);
+    final isAdminOrDev = user?.role == UserRole.admin || user?.role == UserRole.developer;
+    final tabsCount = isAdminOrDev ? 5 : 4;
+
+    if (_tabController.length != tabsCount) {
+      _tabController.dispose();
+      _tabController = TabController(length: tabsCount, vsync: this);
+    }
+
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -59,22 +69,25 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen>
               indicatorColor: AppColors.primary,
               labelColor: AppColors.primary,
               unselectedLabelColor: AppColors.textMuted,
-              labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-              tabs: const [
-                Tab(text: 'Members'),
-                Tab(text: 'Broadcast'),
-                Tab(text: 'Roadmaps'),
-                Tab(text: 'Analytics'),
+              labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              isScrollable: true,
+              tabs: [
+                const Tab(text: 'Members'),
+                if (isAdminOrDev) const Tab(text: 'Requests'),
+                const Tab(text: 'Broadcast'),
+                const Tab(text: 'Roadmaps'),
+                const Tab(text: 'Analytics'),
               ],
             ),
             Expanded(
               child: TabBarView(
                 controller: _tabController,
-                children: const [
-                  _MembersTab(),
-                  _BroadcastTab(),
-                  _RoadmapEditorTab(),
-                  _AnalyticsTab(),
+                children: [
+                  const _MembersTab(),
+                  if (isAdminOrDev) const _RequestsTab(),
+                  const _BroadcastTab(),
+                  const _RoadmapEditorTab(),
+                  const _AnalyticsTab(),
                 ],
               ),
             ),
@@ -207,8 +220,82 @@ class _MembersTab extends ConsumerWidget {
                 },
               );
             }),
+            if (ref.read(currentUserProvider)?.role == UserRole.admin || ref.read(currentUserProvider)?.role == UserRole.developer) ...[
+              const Divider(height: 24),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context); // Close current sheet
+                  _showResetPasswordDialog(context, ref, member);
+                },
+                icon: const Icon(Icons.password_rounded, size: 16),
+                label: const Text('Reset Account Password'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.surfaceLight,
+                  foregroundColor: AppColors.textPrimary,
+                ),
+              ),
+            ],
           ],
         ),
+      ),
+    );
+  }
+
+  void _showResetPasswordDialog(BuildContext context, WidgetRef ref, UserModel member) {
+    final passwordCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: AppColors.border, width: 1.5),
+        ),
+        title: const Text('Reset Password', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Set new password for ${member.name}:', style: const TextStyle(fontSize: 13)),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: passwordCtrl,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'New Password',
+                hintText: '••••••••',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final newPass = passwordCtrl.text.trim();
+              if (newPass.length < 6) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Password must be at least 6 characters')),
+                );
+                return;
+              }
+              Navigator.pop(context);
+              await ref.read(databaseRepositoryProvider).changeUserPassword(member.uid, newPass);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Password reset successfully for ${member.name}!'),
+                    backgroundColor: AppColors.success,
+                  ),
+                );
+              }
+            },
+            child: const Text('Update'),
+          ),
+        ],
       ),
     );
   }
@@ -216,6 +303,7 @@ class _MembersTab extends ConsumerWidget {
   Color _roleColor(UserRole role) {
     return switch (role) {
       UserRole.admin => AppColors.error,
+      UserRole.developer => AppColors.primary,
       UserRole.lead => AppColors.accent,
       UserRole.member => AppColors.secondary,
     };
@@ -844,5 +932,198 @@ class _BarChartPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _BarChartPainter oldDelegate) {
     return oldDelegate.values != values || oldDelegate.color != color;
+  }
+}
+
+// ── Admissions Requests Tab ──────────────────────────────────────────────────
+final _requestsStreamProvider = StreamProvider<List<AccessRequestModel>>((ref) {
+  return ref.watch(databaseRepositoryProvider).getAccessRequests();
+});
+
+class _RequestsTab extends ConsumerWidget {
+  const _RequestsTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final requestsAsync = ref.watch(_requestsStreamProvider);
+
+    return requestsAsync.when(
+      data: (requests) {
+        final pending = requests.where((r) => r.status == 'pending').toList();
+        final processed = requests.where((r) => r.status != 'pending').toList();
+
+        if (requests.isEmpty) {
+          return const Center(child: Text('No admission requests found.'));
+        }
+
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            if (pending.isNotEmpty) ...[
+              const Padding(
+                padding: EdgeInsets.only(left: 4, bottom: 10),
+                child: Text(
+                  'Pending Requests',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.accent),
+                ),
+              ),
+              ...pending.map((r) => _buildRequestCard(context, ref, r)),
+              const SizedBox(height: 20),
+            ],
+            if (processed.isNotEmpty) ...[
+              const Padding(
+                padding: EdgeInsets.only(left: 4, bottom: 10),
+                child: Text(
+                  'Processed Requests',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textMuted),
+                ),
+              ),
+              ...processed.map((r) => _buildRequestCard(context, ref, r)),
+            ],
+          ],
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, s) => Center(child: Text('Error loading requests: $e')),
+    );
+  }
+
+  Widget _buildRequestCard(BuildContext context, WidgetRef ref, AccessRequestModel r) {
+    final isPending = r.status == 'pending';
+    final statusColor = r.status == 'approved'
+        ? AppColors.success
+        : r.status == 'rejected'
+            ? AppColors.error
+            : AppColors.accent;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(r.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  const SizedBox(height: 6),
+                  Text('Father: ${r.fatherName}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  Text('Phone: ${r.phoneNumber}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  Text('Personal: ${r.personalEmail}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  Text('KIET: ${r.kietEmail}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  Text('Aadhar: ${r.aadharNumber}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    r.status.toUpperCase(),
+                    style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 9),
+                  ),
+                ),
+                if (isPending) ...[
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        onPressed: () => _showApproveDialog(context, ref, r),
+                        icon: const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 28),
+                        constraints: const BoxConstraints(),
+                        padding: EdgeInsets.zero,
+                      ),
+                      const SizedBox(width: 12),
+                      IconButton(
+                        onPressed: () async {
+                          await ref.read(databaseRepositoryProvider).rejectAccessRequest(r.id);
+                          ref.invalidate(_requestsStreamProvider);
+                        },
+                        icon: const Icon(Icons.cancel_rounded, color: AppColors.error, size: 28),
+                        constraints: const BoxConstraints(),
+                        padding: EdgeInsets.zero,
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showApproveDialog(BuildContext context, WidgetRef ref, AccessRequestModel r) {
+    final passwordCtrl = TextEditingController(text: 'password');
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: AppColors.border, width: 1.5),
+        ),
+        title: const Text('Approve Admission', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Set credentials for ${r.name}:', style: const TextStyle(fontSize: 13)),
+            const SizedBox(height: 12),
+            Text('Email (Club ID): ${r.kietEmail}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: passwordCtrl,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'Initial Password',
+                hintText: 'password',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final pass = passwordCtrl.text.trim();
+              if (pass.length < 6) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Password must be at least 6 characters')),
+                );
+                return;
+              }
+              Navigator.pop(context);
+              await ref.read(databaseRepositoryProvider).approveAccessRequest(r.id, r.kietEmail, pass);
+              ref.invalidate(_requestsStreamProvider);
+              ref.invalidate(_membersStreamProvider);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Admitted ${r.name} successfully!'),
+                    backgroundColor: AppColors.success,
+                  ),
+                );
+              }
+            },
+            child: const Text('Approve'),
+          ),
+        ],
+      ),
+    );
   }
 }

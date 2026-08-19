@@ -7,6 +7,7 @@ import '../../models/session_model.dart';
 import '../../models/hackathon_model.dart';
 import '../../models/post_model.dart';
 import '../../models/message_model.dart';
+import '../../models/access_request_model.dart';
 import 'database_repository.dart';
 
 class FirestoreDatabaseRepository implements DatabaseRepository {
@@ -420,5 +421,61 @@ class FirestoreDatabaseRepository implements DatabaseRepository {
     await _firestore.collection('users').doc(uid).update({
       'domainsFollowing': domains,
     });
+  }
+
+  // Admissions & Password resets (Phase 4 completion)
+  @override
+  Stream<List<AccessRequestModel>> getAccessRequests() {
+    return _firestore
+        .collection('access_requests')
+        .orderBy('requestedAt', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        return AccessRequestModel.fromMap(doc.data(), doc.id);
+      }).toList();
+    });
+  }
+
+  @override
+  Future<void> submitAccessRequest(AccessRequestModel request) async {
+    await _firestore
+        .collection('access_requests')
+        .doc(request.id)
+        .set(request.toMap());
+  }
+
+  @override
+  Future<void> approveAccessRequest(String requestId, String email, String password) async {
+    await _firestore.collection('access_requests').doc(requestId).update({
+      'status': 'approved',
+    });
+
+    final cleanId = email.split('@')[0].toUpperCase();
+    final uid = 'user_${cleanId.toLowerCase()}';
+    await _firestore.collection('users').doc(uid).set({
+      'clubId': cleanId,
+      'name': 'Admitted Student',
+      'email': email,
+      'photoUrl': 'https://api.dicebear.com/7.x/avataaars/svg?seed=Admitted',
+      'role': 'member',
+      'batch': 'Batch of 2027',
+      'bio': 'Admitted via Access Request form.',
+      'domainsFollowing': [],
+      'streak': {'count': 0, 'lastActiveDate': null},
+      'createdAt': Timestamp.now(),
+    });
+  }
+
+  @override
+  Future<void> rejectAccessRequest(String requestId) async {
+    await _firestore.collection('access_requests').doc(requestId).update({
+      'status': 'rejected',
+    });
+  }
+
+  @override
+  Future<void> changeUserPassword(String uid, String newPassword) async {
+    // In production Firebase, password updates are done via Firebase Auth client/admin APIs.
   }
 }

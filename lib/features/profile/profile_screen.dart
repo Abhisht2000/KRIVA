@@ -129,7 +129,7 @@ class ProfileScreen extends ConsumerWidget {
               ),
 
               // Admin Portal shortcut button
-              if (user.role == UserRole.admin || user.role == UserRole.lead) ...[
+              if (user.role == UserRole.admin || user.role == UserRole.lead || user.role == UserRole.developer) ...[
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                   child: InkWell(

@@ -102,52 +102,202 @@ class _SessionsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final sessionsAsync = ref.watch(sessionsProvider);
     final user = ref.watch(currentUserProvider);
+    final isLeadOrAdmin = user != null &&
+        (user.role == UserRole.lead ||
+            user.role == UserRole.admin ||
+            user.role == UserRole.developer);
 
-    return sessionsAsync.when(
-      data: (sessions) {
-        if (sessions.isEmpty) {
-          return const Center(
-            child: Text(
-              'No interactive sessions scheduled yet.',
-              style: TextStyle(color: AppColors.textMuted),
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      floatingActionButton: isLeadOrAdmin
+          ? FloatingActionButton.extended(
+              onPressed: () => _showScheduleSessionSheet(context, ref, user),
+              label: const Text('Schedule Class'),
+              icon: const Icon(Icons.add_rounded),
+              backgroundColor: AppColors.primary,
+            )
+          : null,
+      body: sessionsAsync.when(
+        data: (sessions) {
+          if (sessions.isEmpty) {
+            return const Center(
+              child: Text(
+                'No interactive sessions scheduled yet.',
+                style: TextStyle(color: AppColors.textMuted),
+              ),
+            );
+          }
+
+          // Sort: upcoming first, past sessions at the bottom
+          final now = DateTime.now();
+          final upcoming = sessions.where((s) => s.dateTime.isAfter(now)).toList();
+          final past = sessions.where((s) => s.dateTime.isBefore(now)).toList();
+
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              if (upcoming.isNotEmpty) ...[
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                  child: Text(
+                    'Upcoming Sessions',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                  ),
+                ),
+                ...upcoming.map((session) => _buildSessionCard(context, ref, session, user, isPast: false)),
+                const SizedBox(height: 16),
+              ],
+              if (past.isNotEmpty) ...[
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                  child: Text(
+                    'Past Sessions',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textMuted),
+                  ),
+                ),
+                ...past.map((session) => _buildSessionCard(context, ref, session, user, isPast: true)),
+              ],
+            ],
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, s) => Center(child: Text('Error loading sessions: $e')),
+      ),
+    );
+  }
+
+  void _showScheduleSessionSheet(BuildContext context, WidgetRef ref, UserModel? host) {
+    final titleCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+    final linkCtrl = TextEditingController();
+    String selectedDomain = 'web_dev';
+    DateTime selectedDateTime = DateTime.now().add(const Duration(days: 1));
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+          return Padding(
+            padding: EdgeInsets.fromLTRB(24, 20, 24, 24 + bottomInset),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Schedule New Session',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 24),
+                  TextFormField(
+                    controller: titleCtrl,
+                    decoration: const InputDecoration(labelText: 'Session Title', prefixIcon: Icon(Icons.title)),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: descCtrl,
+                    decoration: const InputDecoration(labelText: 'Description', prefixIcon: Icon(Icons.description)),
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedDomain,
+                    decoration: const InputDecoration(labelText: 'Domain Tag', prefixIcon: Icon(Icons.tag)),
+                    items: const [
+                      DropdownMenuItem(value: 'dsa', child: Text('Data Structures & Algorithms')),
+                      DropdownMenuItem(value: 'web_dev', child: Text('Web Development')),
+                      DropdownMenuItem(value: 'ml', child: Text('Machine Learning')),
+                    ],
+                    onChanged: (val) => setState(() => selectedDomain = val!),
+                  ),
+                  const SizedBox(height: 12),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.calendar_month, color: AppColors.primary),
+                    title: Text(DateFormat('yyyy-MM-dd HH:mm').format(selectedDateTime)),
+                    trailing: TextButton(
+                      onPressed: () async {
+                        final date = await showDatePicker(
+                          context: context,
+                          initialDate: selectedDateTime,
+                          firstDate: DateTime.now(),
+                          lastDate: DateTime.now().add(const Duration(days: 365)),
+                        );
+                        if (date != null && context.mounted) {
+                          final time = await showTimePicker(
+                            context: context,
+                            initialTime: TimeOfDay.fromDateTime(selectedDateTime),
+                          );
+                          if (time != null) {
+                            setState(() {
+                              selectedDateTime = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+                            });
+                          }
+                        }
+                      },
+                      child: const Text('Pick Time'),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: linkCtrl,
+                    decoration: const InputDecoration(labelText: 'Meeting Link (Jitsi / Meet)', prefixIcon: Icon(Icons.link)),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () async {
+                      if (titleCtrl.text.isEmpty || linkCtrl.text.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Please enter Title and Meeting Link')),
+                        );
+                        return;
+                      }
+                      final newSession = SessionModel(
+                        id: 'sess_${const Uuid().v4().substring(0, 8)}',
+                        title: titleCtrl.text.trim(),
+                        description: descCtrl.text.trim(),
+                        domainTag: selectedDomain,
+                        dateTime: selectedDateTime,
+                        link: linkCtrl.text.trim(),
+                        createdBy: host?.name ?? 'Lead/Educator',
+                        rsvps: [],
+                        attendees: [],
+                      );
+                      Navigator.pop(context);
+                      await ref.read(databaseRepositoryProvider).createSession(newSession);
+                      ref.invalidate(sessionsProvider);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Class session scheduled successfully!'),
+                            backgroundColor: AppColors.success,
+                          ),
+                        );
+                      }
+                    },
+                    child: const Text('Schedule Class'),
+                  ),
+                ],
+              ),
             ),
           );
-        }
-
-        // Sort: upcoming first, past sessions at the bottom
-        final now = DateTime.now();
-        final upcoming = sessions.where((s) => s.dateTime.isAfter(now)).toList();
-        final past = sessions.where((s) => s.dateTime.isBefore(now)).toList();
-
-        return ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            if (upcoming.isNotEmpty) ...[
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                child: Text(
-                  'Upcoming Sessions',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                ),
-              ),
-              ...upcoming.map((session) => _buildSessionCard(context, ref, session, user, isPast: false)),
-              const SizedBox(height: 16),
-            ],
-            if (past.isNotEmpty) ...[
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                child: Text(
-                  'Past Sessions',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textMuted),
-                ),
-              ),
-              ...past.map((session) => _buildSessionCard(context, ref, session, user, isPast: true)),
-            ],
-          ],
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, s) => Center(child: Text('Error loading sessions: $e')),
+        },
+      ),
     );
   }
 

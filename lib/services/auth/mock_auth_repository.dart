@@ -47,7 +47,32 @@ class MockAuthRepository implements AuthRepository {
       streak: UserStreak(count: 0, lastActiveDate: null),
       createdAt: DateTime.now().subtract(const Duration(days: 90)),
     ),
+    'DEV001': UserModel(
+      uid: 'user_dev001',
+      clubId: 'DEV001',
+      name: 'Master Developer',
+      email: 'dev001@kriva.app',
+      photoUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Developer',
+      role: UserRole.developer,
+      batch: 'Batch of 2026',
+      bio: 'Absolute System Developer override. Master privileges enabled.',
+      domainsFollowing: ['dsa', 'web_dev', 'ml'],
+      streak: UserStreak(count: 99, lastActiveDate: DateTime.now()),
+      createdAt: DateTime.now().subtract(const Duration(days: 120)),
+    ),
   };
+
+  // Initial Mock Passwords store (Email/ID -> Password)
+  static final Map<String, String> _mockPasswords = {
+    'MEM001': 'password',
+    'LED001': 'password',
+    'ADM001': 'password',
+    'DEV001': 'password',
+  };
+
+  // Public getters to allow MockDatabaseRepository to add users on approval
+  static Map<String, UserModel> get mockUsers => _mockUsers;
+  static Map<String, String> get mockPasswords => _mockPasswords;
 
   MockAuthRepository() {
     // Start as signed-out
@@ -64,7 +89,7 @@ class MockAuthRepository implements AuthRepository {
   Future<UserModel> signIn(String loginId, String password) async {
     await Future.delayed(const Duration(milliseconds: 800)); // Simulate network
 
-    // Format loginId if it's club ID
+    // Format loginId if it's email or ID
     final String cleanId = loginId.toUpperCase().trim();
     String lookupId = cleanId;
     if (cleanId.contains('@')) {
@@ -73,28 +98,17 @@ class MockAuthRepository implements AuthRepository {
     }
 
     if (_mockUsers.containsKey(lookupId)) {
+      final actualPassword = _mockPasswords[lookupId] ?? 'password';
+      if (actualPassword != password) {
+        throw Exception('Incorrect password for account $loginId');
+      }
+      
       final user = _mockUsers[lookupId]!;
       _currentUser = user;
       _controller.add(_currentUser);
       return _currentUser!;
     } else {
-      // Let's create a generic user if they type something else, for easy demoing
-      final genericUser = UserModel(
-        uid: 'user_${cleanId.toLowerCase()}',
-        clubId: cleanId,
-        name: cleanId,
-        email: '${cleanId.toLowerCase()}@kriva.app',
-        photoUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=$cleanId',
-        role: UserRole.member,
-        batch: 'Batch of 2027',
-        bio: 'New Club Member! Setting up my journey.',
-        domainsFollowing: [],
-        streak: UserStreak(count: 1, lastActiveDate: DateTime.now()),
-        createdAt: DateTime.now(),
-      );
-      _currentUser = genericUser;
-      _controller.add(_currentUser);
-      return _currentUser!;
+      throw Exception('Account ID "$loginId" is not admitted in the system. Please submit an Access Request.');
     }
   }
 

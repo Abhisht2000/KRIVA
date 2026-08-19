@@ -7,6 +7,8 @@ import '../../models/session_model.dart';
 import '../../models/hackathon_model.dart';
 import '../../models/post_model.dart';
 import '../../models/message_model.dart';
+import '../../models/access_request_model.dart';
+import '../auth/mock_auth_repository.dart';
 import 'database_repository.dart';
 
 class MockDatabaseRepository implements DatabaseRepository {
@@ -14,6 +16,7 @@ class MockDatabaseRepository implements DatabaseRepository {
   final _domainController = StreamController<List<DomainModel>>.broadcast();
   final _broadcastController = StreamController<List<BroadcastModel>>.broadcast();
   final _membersController = StreamController<List<UserModel>>.broadcast();
+  final _accessRequestsController = StreamController<List<AccessRequestModel>>.broadcast();
   
   // Phase 2/3 stream controllers
   final _sessionsController = StreamController<List<SessionModel>>.broadcast();
@@ -35,6 +38,7 @@ class MockDatabaseRepository implements DatabaseRepository {
   late List<TopicModel> _topics;
   final List<BroadcastModel> _broadcasts = [];
   final List<UserModel> _members = [];
+  final List<AccessRequestModel> _accessRequests = [];
   final Map<String, UserProgressModel> _progressStore = {};
   
   // Phase 2/3 Storage
@@ -765,6 +769,111 @@ class MockDatabaseRepository implements DatabaseRepository {
     if (index != -1) {
       _members[index] = _members[index].copyWith(domainsFollowing: domains);
       _membersController.add(_members);
+    }
+  }
+
+  // Admissions & Password resets (Phase 4 completion)
+  @override
+  Stream<List<AccessRequestModel>> getAccessRequests() {
+    // Add default mock pending request if list is empty, for preview
+    if (_accessRequests.isEmpty) {
+      _accessRequests.add(AccessRequestModel(
+        id: 'req_101',
+        name: 'Harsh Vardhan',
+        fatherName: 'Rajesh Vardhan',
+        phoneNumber: '9876543210',
+        personalEmail: 'harsh@gmail.com',
+        kietEmail: 'harsh.22bcs1010@kiet.edu',
+        aadharNumber: '1234 5678 9012',
+        status: 'pending',
+        requestedAt: DateTime.now().subtract(const Duration(hours: 3)),
+      ));
+    }
+    Timer.run(() => _accessRequestsController.add(_accessRequests));
+    return _accessRequestsController.stream;
+  }
+
+  @override
+  Future<void> submitAccessRequest(AccessRequestModel request) async {
+    await Future.delayed(const Duration(milliseconds: 600));
+    _accessRequests.add(request);
+    _accessRequestsController.add(_accessRequests);
+  }
+
+  @override
+  Future<void> approveAccessRequest(String requestId, String email, String password) async {
+    await Future.delayed(const Duration(milliseconds: 800));
+    final reqIndex = _accessRequests.indexWhere((r) => r.id == requestId);
+    if (reqIndex != -1) {
+      final req = _accessRequests[reqIndex];
+      // Update status
+      _accessRequests[reqIndex] = AccessRequestModel(
+        id: req.id,
+        name: req.name,
+        fatherName: req.fatherName,
+        phoneNumber: req.phoneNumber,
+        personalEmail: req.personalEmail,
+        kietEmail: req.kietEmail,
+        aadharNumber: req.aadharNumber,
+        status: 'approved',
+        requestedAt: req.requestedAt,
+      );
+      _accessRequestsController.add(_accessRequests);
+
+      // Admit User
+      final cleanId = email.split('@')[0].toUpperCase();
+      final uid = 'user_${cleanId.toLowerCase()}';
+      final newUser = UserModel(
+        uid: uid,
+        clubId: cleanId,
+        name: req.name,
+        email: email,
+        photoUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=${req.name}',
+        role: UserRole.member,
+        batch: 'Batch of 2027',
+        bio: 'Admitted via Access Request form.',
+        domainsFollowing: [],
+        streak: UserStreak(count: 0, lastActiveDate: null),
+        createdAt: DateTime.now(),
+      );
+
+      _members.add(newUser);
+      _membersController.add(_members);
+
+      // Register in mock auth credentials
+      MockAuthRepository.mockUsers[cleanId] = newUser;
+      MockAuthRepository.mockPasswords[cleanId] = password;
+    }
+  }
+
+  @override
+  Future<void> rejectAccessRequest(String requestId) async {
+    await Future.delayed(const Duration(milliseconds: 500));
+    final reqIndex = _accessRequests.indexWhere((r) => r.id == requestId);
+    if (reqIndex != -1) {
+      final req = _accessRequests[reqIndex];
+      _accessRequests[reqIndex] = AccessRequestModel(
+        id: req.id,
+        name: req.name,
+        fatherName: req.fatherName,
+        phoneNumber: req.phoneNumber,
+        personalEmail: req.personalEmail,
+        kietEmail: req.kietEmail,
+        aadharNumber: req.aadharNumber,
+        status: 'rejected',
+        requestedAt: req.requestedAt,
+      );
+      _accessRequestsController.add(_accessRequests);
+    }
+  }
+
+  @override
+  Future<void> changeUserPassword(String uid, String newPassword) async {
+    await Future.delayed(const Duration(milliseconds: 500));
+    final index = _members.indexWhere((element) => element.uid == uid);
+    if (index != -1) {
+      final clubId = _members[index].clubId.toUpperCase();
+      MockAuthRepository.mockPasswords[clubId] = newPassword;
     }
   }
 }

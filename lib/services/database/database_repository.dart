@@ -6,6 +6,7 @@ import '../../models/session_model.dart';
 import '../../models/hackathon_model.dart';
 import '../../models/post_model.dart';
 import '../../models/message_model.dart';
+import '../../models/access_request_model.dart';
 
 abstract class DatabaseRepository {
   // Roadmaps & Domains
@@ -61,4 +62,11 @@ abstract class DatabaseRepository {
   Stream<List<UserModel>> getMembers();
   Future<void> updateUserRole(String uid, UserRole role);
   Future<void> updateFollowedDomains(String uid, List<String> domains);
+
+  // Admissions & Password resets (Phase 4 completion)
+  Stream<List<AccessRequestModel>> getAccessRequests();
+  Future<void> submitAccessRequest(AccessRequestModel request);
+  Future<void> approveAccessRequest(String requestId, String email, String password);
+  Future<void> rejectAccessRequest(String requestId);
+  Future<void> changeUserPassword(String uid, String newPassword);
 }

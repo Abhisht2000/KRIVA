@@ -3,7 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 enum UserRole {
   member,
   lead,
-  admin;
+  admin,
+  developer;
 
   String get value => name;
 

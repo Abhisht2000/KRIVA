@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 import '../../core/theme/app_colors.dart';
+import '../../models/access_request_model.dart';
 import '../../services/service_providers.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -303,10 +305,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 if (useMock) ...[
                                   const SizedBox(height: 12),
                                   Text(
-                                    '💡 Demo hint: Log in with Club ID "MEM001" or "ADM001" and password "password".',
+                                    '💡 Demo hint: Log in with "DEV001", "ADM001", "LED001" or "MEM001" and password "password".',
                                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                       color: AppColors.accent.withValues(alpha: 0.8),
-                                      fontSize: 12,
+                                      fontSize: 11,
                                     ),
                                     textAlign: TextAlign.center,
                                   ),
@@ -372,6 +374,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ),
                         ],
+                        const SizedBox(height: 20),
+                        
+                        // Request Admission / Access option
+                        if (!_isLoading)
+                          TextButton(
+                            onPressed: () => _showAccessRequestForm(context),
+                            child: const Text(
+                              'Request Admission / Access',
+                              style: TextStyle(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
                         const Spacer(),
                       ],
                     ),
@@ -381,6 +399,199 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showAccessRequestForm(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => _AccessRequestFormSheet(ref: ref),
+    );
+  }
+}
+
+// ── Access Request Form Sheet Widget ─────────────────────────────────────────
+class _AccessRequestFormSheet extends StatefulWidget {
+  final WidgetRef ref;
+  const _AccessRequestFormSheet({required this.ref});
+
+  @override
+  State<_AccessRequestFormSheet> createState() => _AccessRequestFormSheetState();
+}
+
+class _AccessRequestFormSheetState extends State<_AccessRequestFormSheet> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameCtrl = TextEditingController();
+  final _fatherNameCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+  final _personalEmailCtrl = TextEditingController();
+  final _kietEmailCtrl = TextEditingController();
+  final _aadharCtrl = TextEditingController();
+  bool _isSaving = false;
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _fatherNameCtrl.dispose();
+    _phoneCtrl.dispose();
+    _personalEmailCtrl.dispose();
+    _kietEmailCtrl.dispose();
+    _aadharCtrl.dispose();
+    super.dispose();
+  }
+
+  void _submitRequest() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isSaving = true);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
+    try {
+      final reqId = 'req_${const Uuid().v4().substring(0, 8)}';
+      final request = AccessRequestModel(
+        id: reqId,
+        name: _nameCtrl.text.trim(),
+        fatherName: _fatherNameCtrl.text.trim(),
+        phoneNumber: _phoneCtrl.text.trim(),
+        personalEmail: _personalEmailCtrl.text.trim(),
+        kietEmail: _kietEmailCtrl.text.trim(),
+        aadharNumber: _aadharCtrl.text.trim(),
+        status: 'pending',
+        requestedAt: DateTime.now(),
+      );
+
+      final db = widget.ref.read(databaseRepositoryProvider);
+      await db.submitAccessRequest(request);
+
+      navigator.pop();
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(
+          content: Text('Access Request submitted successfully! Admins will review and grant credentials.'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    } catch (e) {
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text('Error submitting request: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(24, 20, 24, 24 + bottomInset),
+      child: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Admission Request Form',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Please fill in your authentic details. Admissions are verified by club leads.',
+                style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+              ),
+              const Divider(height: 24),
+              TextFormField(
+                controller: _nameCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Full Name',
+                  prefixIcon: Icon(Icons.person_outline, size: 20),
+                ),
+                validator: (v) => v == null || v.trim().isEmpty ? 'Enter your name' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _fatherNameCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Father\'s Name',
+                  prefixIcon: Icon(Icons.family_restroom_outlined, size: 20),
+                ),
+                validator: (v) => v == null || v.trim().isEmpty ? 'Enter father\'s name' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _phoneCtrl,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  labelText: 'Phone Number',
+                  prefixIcon: Icon(Icons.phone_outlined, size: 20),
+                ),
+                validator: (v) => v == null || v.length < 10 ? 'Enter valid phone number' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _personalEmailCtrl,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  labelText: 'Personal Email',
+                  prefixIcon: Icon(Icons.alternate_email_rounded, size: 20),
+                ),
+                validator: (v) => v == null || !v.contains('@') ? 'Enter valid personal email' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _kietEmailCtrl,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  labelText: 'KIET Email',
+                  prefixIcon: Icon(Icons.school_outlined, size: 20),
+                ),
+                validator: (v) => v == null || !v.endsWith('kiet.edu') ? 'Enter your official @kiet.edu email' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _aadharCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Aadhar Card Number',
+                  prefixIcon: Icon(Icons.credit_card_outlined, size: 20),
+                ),
+                validator: (v) => v == null || v.trim().length < 12 ? 'Enter valid 12-digit Aadhar number' : null,
+              ),
+              const SizedBox(height: 24),
+              _isSaving
+                  ? const Center(child: CircularProgressIndicator())
+                  : ElevatedButton(
+                      onPressed: _submitRequest,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      child: const Text('Submit Application'),
+                    ),
+            ],
+          ),
+        ),
       ),
     );
   }
