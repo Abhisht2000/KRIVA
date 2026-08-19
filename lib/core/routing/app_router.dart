@@ -76,18 +76,10 @@ final routerProvider = Provider<GoRouter>((ref) {
 /// Helper class to bridge Riverpod state changes to GoRouter refresh notifier
 class _RiverpodRouterRefreshListenable extends ChangeNotifier {
   final Ref _ref;
-  VoidCallback? _subscription;
 
   _RiverpodRouterRefreshListenable(this._ref) {
-    // Listen to changes in auth changes stream provider
-    _ref.listen(authStateChangesProvider, (_, __) {
+    _ref.listen(authStateChangesProvider, (prev, next) {
       notifyListeners();
     });
-  }
-
-  @override
-  void dispose() {
-    _subscription?.call();
-    super.dispose();
   }
 }

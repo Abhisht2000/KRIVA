@@ -96,8 +96,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               height: 300,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppColors.primary.withOpacity(0.15),
-                blurRadius: 100,
+                color: AppColors.primary.withValues(alpha: 0.15),
               ),
             ),
           ),
@@ -109,8 +108,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               height: 250,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppColors.secondary.withOpacity(0.12),
-                blurRadius: 80,
+                color: AppColors.secondary.withValues(alpha: 0.12),
               ),
             ),
           ),
@@ -128,7 +126,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: AppColors.surface.withOpacity(0.6),
+                          color: AppColors.surface.withValues(alpha: 0.6),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(color: AppColors.border, width: 1),
                         ),
@@ -162,10 +160,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     ),
                                   );
                                 },
-                                activeColor: AppColors.accent,
-                                activeTrackColor: AppColors.accent.withOpacity(0.3),
+                                activeThumbColor: AppColors.accent,
+                                activeTrackColor: AppColors.accent.withValues(alpha: 0.3),
                                 inactiveThumbColor: AppColors.success,
-                                inactiveTrackColor: AppColors.success.withOpacity(0.3),
+                                inactiveTrackColor: AppColors.success.withValues(alpha: 0.3),
                               ),
                             ),
                           ],
@@ -193,9 +191,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: AppColors.primary.withOpacity(0.1),
+                                color: AppColors.primary.withValues(alpha: 0.1),
                                 border: Border.all(
-                                  color: AppColors.primary.withOpacity(0.2),
+                                  color: AppColors.primary.withValues(alpha: 0.2),
                                   width: 2,
                                 ),
                               ),
@@ -232,10 +230,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         Container(
                           padding: const EdgeInsets.all(24),
                           decoration: BoxDecoration(
-                            color: AppColors.surface.withOpacity(0.4),
+                            color: AppColors.surface.withValues(alpha: 0.4),
                             borderRadius: BorderRadius.circular(24),
                             border: Border.all(
-                              color: Colors.white.withOpacity(0.05),
+                              color: Colors.white.withValues(alpha: 0.05),
                               width: 1.5,
                             ),
                           ),
@@ -307,7 +305,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   Text(
                                     '💡 Demo hint: Log in with Club ID "MEM001" or "ADM001" and password "password".',
                                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                      color: AppColors.accent.withOpacity(0.8),
+                                      color: AppColors.accent.withValues(alpha: 0.8),
                                       fontSize: 12,
                                     ),
                                     textAlign: TextAlign.center,
@@ -348,7 +346,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 BorderSide(color: AppColors.border, width: 1),
                               ),
                               backgroundColor: WidgetStateProperty.all(
-                                AppColors.surface.withOpacity(0.3),
+                                AppColors.surface.withValues(alpha: 0.3),
                               ),
                             ),
                             child: Row(

@@ -206,4 +206,11 @@ class FirestoreDatabaseRepository implements DatabaseRepository {
       'role': role.value
     });
   }
+
+  @override
+  Future<void> updateFollowedDomains(String uid, List<String> domains) async {
+    await _firestore.collection('users').doc(uid).update({
+      'domainsFollowing': domains,
+    });
+  }
 }

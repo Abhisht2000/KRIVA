@@ -100,7 +100,7 @@ class DashboardScreen extends ConsumerWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.15),
+                    color: AppColors.primary.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
@@ -215,12 +215,12 @@ class DashboardScreen extends ConsumerWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                           decoration: BoxDecoration(
                             color: user.streak.count > 0 
-                                ? AppColors.accent.withOpacity(0.12)
+                                ? AppColors.accent.withValues(alpha: 0.12)
                                 : AppColors.surface,
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
                               color: user.streak.count > 0 
-                                  ? AppColors.accent.withOpacity(0.3)
+                                  ? AppColors.accent.withValues(alpha: 0.3)
                                   : AppColors.border,
                               width: 1.5,
                             ),
@@ -278,7 +278,7 @@ class DashboardScreen extends ConsumerWidget {
                         child: Container(
                           padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
-                            color: AppColors.surface.withOpacity(0.3),
+                            color: AppColors.surface.withValues(alpha: 0.3),
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(color: AppColors.border),
                           ),
@@ -315,7 +315,7 @@ class DashboardScreen extends ConsumerWidget {
                                 borderRadius: BorderRadius.circular(16),
                                 border: Border.all(
                                   color: isUnread 
-                                      ? AppColors.primary.withOpacity(0.5) 
+                                      ? AppColors.primary.withValues(alpha: 0.5) 
                                       : AppColors.border,
                                   width: isUnread ? 1.5 : 1,
                                 ),
@@ -427,7 +427,7 @@ class DashboardScreen extends ConsumerWidget {
                         child: Container(
                           padding: const EdgeInsets.all(24),
                           decoration: BoxDecoration(
-                            color: AppColors.surface.withOpacity(0.3),
+                            color: AppColors.surface.withValues(alpha: 0.3),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(color: AppColors.border),
                           ),

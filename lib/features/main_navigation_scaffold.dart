@@ -82,7 +82,7 @@ class MainNavigationScaffold extends ConsumerWidget {
             ref.read(navigationTabProvider.notifier).state = index;
           },
           type: BottomNavigationBarType.fixed,
-          backgroundColor: AppColors.background.withOpacity(0.95),
+          backgroundColor: AppColors.background.withValues(alpha: 0.95),
           selectedItemColor: AppColors.primary,
           unselectedItemColor: AppColors.textMuted,
           selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),

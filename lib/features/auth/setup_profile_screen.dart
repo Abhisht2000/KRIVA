@@ -53,6 +53,7 @@ class _SetupProfileScreenState extends ConsumerState<SetupProfileScreen> {
       _isSaving = true;
     });
 
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
     try {
       final photoUrl = 'https://api.dicebear.com/7.x/avataaars/svg?seed=${_avatarSeed.isEmpty ? "kriva" : _avatarSeed}';
       
@@ -67,7 +68,7 @@ class _SetupProfileScreenState extends ConsumerState<SetupProfileScreen> {
       
       // GoRouter authState changes will automatically trigger redirection to home
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      scaffoldMessenger.showSnackBar(
         SnackBar(
           content: Text('Failed to complete profile: $e'),
           backgroundColor: AppColors.error,
@@ -104,8 +105,7 @@ class _SetupProfileScreenState extends ConsumerState<SetupProfileScreen> {
               height: 200,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppColors.primary.withOpacity(0.1),
-                blurRadius: 70,
+                color: AppColors.primary.withValues(alpha: 0.1),
               ),
             ),
           ),
@@ -212,7 +212,7 @@ class _SetupProfileScreenState extends ConsumerState<SetupProfileScreen> {
 
                     // Batch Dropdown
                     DropdownButtonFormField<String>(
-                      value: _selectedBatch,
+                      initialValue: _selectedBatch,
                       decoration: const InputDecoration(
                         labelText: 'Batch',
                         prefixIcon: Icon(Icons.school_outlined, size: 20),
@@ -257,7 +257,7 @@ class _SetupProfileScreenState extends ConsumerState<SetupProfileScreen> {
                             return FilterChip(
                               label: Text(domain.name),
                               selected: isSelected,
-                              selectedColor: AppColors.primary.withOpacity(0.2),
+                              selectedColor: AppColors.primary.withValues(alpha: 0.2),
                               checkmarkColor: AppColors.primary,
                               labelStyle: TextStyle(
                                 color: isSelected ? AppColors.primary : AppColors.textSecondary,

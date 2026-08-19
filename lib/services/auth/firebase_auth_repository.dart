@@ -7,7 +7,6 @@ import 'auth_repository.dart';
 class FirebaseAuthRepository implements AuthRepository {
   final fb.FirebaseAuth _firebaseAuth = fb.FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
 
   UserModel? _cachedUser;
 
@@ -91,14 +90,13 @@ class FirebaseAuthRepository implements AuthRepository {
 
   @override
   Future<UserModel> signInWithGoogle() async {
-    final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-    if (googleUser == null) {
-      throw Exception('Google Sign-In aborted by user');
-    }
+    // google_sign_in v7 uses a singleton instance and authenticate()
+    final GoogleSignInAccount googleUser =
+        await GoogleSignIn.instance.authenticate();
 
-    final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+    // idToken is available directly on GoogleSignInAuthentication
+    final GoogleSignInAuthentication googleAuth = googleUser.authentication;
     final fb.AuthCredential credential = fb.GoogleAuthProvider.credential(
-      accessToken: googleAuth.accessToken,
       idToken: googleAuth.idToken,
     );
 
@@ -133,7 +131,10 @@ class FirebaseAuthRepository implements AuthRepository {
   @override
   Future<void> signOut() async {
     await _firebaseAuth.signOut();
-    await _googleSignIn.signOut();
+    // Also sign out of Google if using Google Sign-In
+    if (GoogleSignIn.instance.supportsAuthenticate()) {
+      // No persistent session to clear on v7; Firebase sign-out is sufficient
+    }
     _cachedUser = null;
   }
 

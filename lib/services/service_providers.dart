@@ -7,6 +7,8 @@ import 'database/database_repository.dart';
 import 'database/mock_database_repository.dart';
 import 'database/firestore_database_repository.dart';
 import '../models/user_model.dart';
+import '../models/domain_model.dart';
+import '../models/user_progress_model.dart';
 import '../models/broadcast_model.dart';
 
 // Provider for SharedPreferences (initialized in main.dart)
@@ -19,7 +21,7 @@ class MockModeNotifier extends StateNotifier<bool> {
   final SharedPreferences _prefs;
   static const _key = 'use_mock_mode_v1';
 
-  MockModeNotifier(this._prefs) : super(_prefs.getBool(_key) ?? true);
+  MockModeNotifier(this._prefs) : super(_prefs.getBool(_key) ?? false);
 
   Future<void> toggle(bool val) async {
     state = val;
