@@ -50,8 +50,21 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen>
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
               child: Row(
                 children: [
-                  const Icon(Icons.admin_panel_settings_rounded,
-                      color: AppColors.primary, size: 26),
+                  Container(
+                    padding: const EdgeInsets.all(1.5),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.3), width: 1.2),
+                    ),
+                    child: ClipOval(
+                      child: Image.asset(
+                        'assets/images/logo.png',
+                        width: 26,
+                        height: 26,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
                   const SizedBox(width: 10),
                   Text(
                     'Admin Panel',

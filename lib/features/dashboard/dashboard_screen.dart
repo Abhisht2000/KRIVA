@@ -177,39 +177,45 @@ class DashboardScreen extends ConsumerWidget {
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
                   child: Row(
                     children: [
+                      // Branded Mini Logo
+                      Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3), width: 1.5),
+                        ),
+                        child: ClipOval(
+                          child: Image.asset(
+                            'assets/images/logo.png',
+                            width: 36,
+                            height: 36,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'KRIVA',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.primary,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      const Spacer(),
                       // Avatar
                       CircleAvatar(
-                        radius: 26,
+                        radius: 20,
                         backgroundColor: AppColors.surfaceLight,
                         backgroundImage: user.photoUrl.isNotEmpty
                             ? NetworkImage(user.photoUrl)
                             : null,
                         child: user.photoUrl.isEmpty
-                            ? const Icon(Icons.person, color: Colors.white)
+                            ? const Icon(Icons.person, color: Colors.white, size: 14)
                             : null,
                       ),
-                      const SizedBox(width: 14),
-                      // Welcome info
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Hello, ${user.name}',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                            ),
-                            Text(
-                              user.batch,
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: AppColors.textSecondary,
-                                    fontSize: 12,
-                                  ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      const SizedBox(width: 8),
                       
                       // Streak Flame button
                       GestureDetector(
