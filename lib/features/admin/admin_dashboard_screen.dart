@@ -105,32 +105,50 @@ class _MembersTab extends ConsumerWidget {
             final m = members[index];
             return Card(
               margin: const EdgeInsets.only(bottom: 10),
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                leading: CircleAvatar(
-                  backgroundImage:
-                      m.photoUrl.isNotEmpty ? NetworkImage(m.photoUrl) : null,
-                  backgroundColor: AppColors.surfaceLight,
-                  child: m.photoUrl.isEmpty
-                      ? const Icon(Icons.person, color: Colors.white, size: 20)
-                      : null,
-                ),
-                title: Text(m.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text('${m.clubId} · ${m.batch}',
-                    style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                trailing: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _roleColor(m.role).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    m.role.name.toUpperCase(),
-                    style: TextStyle(
-                      color: _roleColor(m.role),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 10,
-                    ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => _showRoleSheet(context, ref, m),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundImage: m.photoUrl.isNotEmpty ? NetworkImage(m.photoUrl) : null,
+                        backgroundColor: AppColors.surfaceLight,
+                        child: m.photoUrl.isEmpty
+                            ? const Icon(Icons.person, color: Colors.white, size: 20)
+                            : null,
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(m.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${m.clubId} · ${m.batch}',
+                              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _roleColor(m.role).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          m.role.name.toUpperCase(),
+                          style: TextStyle(
+                            color: _roleColor(m.role),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -140,6 +158,58 @@ class _MembersTab extends ConsumerWidget {
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, s) => Center(child: Text('Error: $e')),
+    );
+  }
+
+  void _showRoleSheet(BuildContext context, WidgetRef ref, UserModel member) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Manage Member Role',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Select role for ${member.name}',
+              style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+            ),
+            const Divider(height: 24),
+            ...UserRole.values.map((role) {
+              final isCurrent = member.role == role;
+              return ListTile(
+                title: Text(role.name.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                trailing: isCurrent ? const Icon(Icons.check_circle_rounded, color: AppColors.primary) : null,
+                onTap: () async {
+                  Navigator.pop(context);
+                  await ref.read(databaseRepositoryProvider).updateUserRole(member.uid, role);
+                  
+                  // Also force local refresh if using mock state
+                  ref.invalidate(_membersStreamProvider);
+
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Updated role to ${role.name.toUpperCase()}'),
+                        backgroundColor: AppColors.success,
+                      ),
+                    );
+                  }
+                },
+              );
+            }),
+          ],
+        ),
+      ),
     );
   }
 
