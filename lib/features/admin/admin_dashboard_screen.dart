@@ -21,7 +21,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -59,10 +59,12 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen>
               indicatorColor: AppColors.primary,
               labelColor: AppColors.primary,
               unselectedLabelColor: AppColors.textMuted,
+              labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
               tabs: const [
                 Tab(text: 'Members'),
                 Tab(text: 'Broadcast'),
                 Tab(text: 'Roadmaps'),
+                Tab(text: 'Analytics'),
               ],
             ),
             Expanded(
@@ -72,6 +74,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen>
                   _MembersTab(),
                   _BroadcastTab(),
                   _RoadmapEditorTab(),
+                  _AnalyticsTab(),
                 ],
               ),
             ),
@@ -459,5 +462,317 @@ class _RoadmapEditorTabState extends ConsumerState<_RoadmapEditorTab> {
         ],
       ),
     );
+  }
+}
+
+// ── Analytics Tab ────────────────────────────────────────────────────────────
+class _AnalyticsTab extends ConsumerWidget {
+  const _AnalyticsTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final membersAsync = ref.watch(_membersStreamProvider);
+    final domainsAsync = ref.watch(domainsProvider);
+
+    return membersAsync.when(
+      data: (members) {
+        final totalMembers = members.length;
+        final totalStreak = members.fold(0, (sum, m) => sum + m.streak.count);
+        final averageStreak = totalMembers > 0 ? (totalStreak / totalMembers).toStringAsFixed(1) : '0';
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Summary cards row
+              Row(
+                children: [
+                  Expanded(
+                    child: _AnalyticsCard(
+                      title: 'Total Members',
+                      value: '$totalMembers',
+                      icon: Icons.groups_rounded,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _AnalyticsCard(
+                      title: 'Avg. Streak',
+                      value: '$averageStreak days',
+                      icon: Icons.local_fire_department_rounded,
+                      color: AppColors.accent,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Weekly active engagement line chart
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Weekly Active Members',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Active logins and activities logged over past 7 days.',
+                      style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      height: 120,
+                      child: CustomPaint(
+                        size: const Size(double.infinity, 120),
+                        painter: _LineChartPainter(
+                          points: const [12, 18, 15, 24, 28, 20, 32],
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: const [
+                        Text('Mon', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                        Text('Tue', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                        Text('Wed', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                        Text('Thu', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                        Text('Fri', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                        Text('Sat', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                        Text('Sun', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Domain Popularity Bar Chart
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Enrolled Members per Domain',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    const SizedBox(height: 20),
+                    domainsAsync.when(
+                      data: (domains) {
+                        // Aggregate enrolments
+                        final domainCounts = <String, int>{};
+                        for (final m in members) {
+                          for (final d in m.domainsFollowing) {
+                            domainCounts[d] = (domainCounts[d] ?? 0) + 1;
+                          }
+                        }
+
+                        final labels = domains.map((d) => d.name.split(' ').first).toList();
+                        final values = domains.map((d) => (domainCounts[d.id] ?? 0).toDouble()).toList();
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            SizedBox(
+                              height: 120,
+                              child: CustomPaint(
+                                size: const Size(double.infinity, 120),
+                                painter: _BarChartPainter(
+                                  values: values,
+                                  color: AppColors.secondary,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: labels
+                                  .map((lbl) => Text(
+                                        lbl,
+                                        style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                                      ))
+                                  .toList(),
+                            ),
+                          ],
+                        );
+                      },
+                      loading: () => const Center(child: CircularProgressIndicator()),
+                      error: (e, s) => Text('Error: $e'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, s) => Center(child: Text('Error loading members stats: $e')),
+    );
+  }
+}
+
+// ── Analytics Summary Card Widget ───────────────────────────────────────────
+class _AnalyticsCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  const _AnalyticsCard({
+    required this.title,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 12),
+          Text(
+            value,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 20,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Custom Painters for Analytics Charts ────────────────────────────────────
+class _LineChartPainter extends CustomPainter {
+  final List<double> points;
+  final Color color;
+
+  _LineChartPainter({required this.points, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.isEmpty) return;
+
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 3.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final maxVal = points.reduce((a, b) => a > b ? a : b);
+    final widthStep = size.width / (points.length - 1);
+
+    final path = Path();
+    for (int i = 0; i < points.length; i++) {
+      final x = i * widthStep;
+      final y = size.height - (points[i] / maxVal) * (size.height - 10);
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+
+    // Outer glow effect
+    final shadowPaint = Paint()
+      ..color = color.withValues(alpha: 0.25)
+      ..strokeWidth = 10
+      ..style = PaintingStyle.stroke
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
+
+    canvas.drawPath(path, shadowPaint);
+    canvas.drawPath(path, paint);
+
+    // Draw active node points
+    final pointPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    for (int i = 0; i < points.length; i++) {
+      final x = i * widthStep;
+      final y = size.height - (points[i] / maxVal) * (size.height - 10);
+      canvas.drawCircle(Offset(x, y), 4.5, pointPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _LineChartPainter oldDelegate) {
+    return oldDelegate.points != points || oldDelegate.color != color;
+  }
+}
+
+class _BarChartPainter extends CustomPainter {
+  final List<double> values;
+  final Color color;
+
+  _BarChartPainter({required this.values, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.isEmpty) return;
+
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final maxVal = values.isNotEmpty ? values.reduce((a, b) => a > b ? a : b) : 0.0;
+    final totalBars = values.length;
+    final spacing = size.width * 0.15;
+    final totalSpacing = spacing * (totalBars + 1);
+    final barWidth = (size.width - totalSpacing) / totalBars;
+
+    for (int i = 0; i < totalBars; i++) {
+      final x = spacing + i * (barWidth + spacing);
+      final height = maxVal > 0 ? (values[i] / maxVal) * (size.height - 10) : 0.0;
+      final y = size.height - height;
+
+      // Draw rounded bar
+      final rect = RRect.fromRectAndCorners(
+        Rect.fromLTWH(x, y, barWidth, height),
+        topLeft: const Radius.circular(6),
+        topRight: const Radius.circular(6),
+      );
+      canvas.drawRRect(rect, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _BarChartPainter oldDelegate) {
+    return oldDelegate.values != values || oldDelegate.color != color;
   }
 }

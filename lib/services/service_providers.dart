@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'auth/auth_repository.dart';
@@ -76,7 +77,26 @@ final authStateChangesProvider = StreamProvider<UserModel?>((ref) {
 // Current UserModel Provider (derived from authStateChangesProvider)
 final currentUserProvider = Provider<UserModel?>((ref) {
   final authState = ref.watch(authStateChangesProvider);
-  return authState.valueOrNull;
+  final prefs = ref.read(sharedPreferencesProvider);
+  
+  final user = authState.valueOrNull;
+  if (user != null) {
+    // Save to Cache
+    prefs.setString('cached_user_v1', json.encode(user.toJsonMap()));
+    prefs.setString('cached_user_id', user.uid);
+    return user;
+  }
+
+  // Fallback to Offline Cache if loading or null
+  final cachedStr = prefs.getString('cached_user_v1');
+  final cachedId = prefs.getString('cached_user_id') ?? '';
+  if (cachedStr != null) {
+    try {
+      final map = json.decode(cachedStr) as Map<String, dynamic>;
+      return UserModel.fromMap(map, cachedId);
+    } catch (_) {}
+  }
+  return null;
 });
 
 // Streams of Domains

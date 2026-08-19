@@ -117,6 +117,24 @@ class UserModel {
     };
   }
 
+  Map<String, dynamic> toJsonMap() {
+    return {
+      'clubId': clubId,
+      'name': name,
+      'email': email,
+      'photoUrl': photoUrl,
+      'role': role.value,
+      'batch': batch,
+      'bio': bio,
+      'domainsFollowing': domainsFollowing,
+      'streak': {
+        'count': streak.count,
+        'lastActiveDate': streak.lastActiveDate?.toIso8601String(),
+      },
+      'createdAt': createdAt.toIso8601String(),
+    };
+  }
+
   UserModel copyWith({
     String? clubId,
     String? name,

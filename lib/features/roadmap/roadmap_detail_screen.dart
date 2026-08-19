@@ -353,29 +353,39 @@ class RoadmapDetailScreen extends ConsumerWidget {
                 const SizedBox(height: 20),
               ],
 
-              // Mark Complete / Undo button
+              // Mark Complete / Undo button / Take Quiz flow
               if (uid.isNotEmpty) ...[
-                ElevatedButton.icon(
-                  onPressed: () async {
-                    final db = ref.read(databaseRepositoryProvider);
-                    await db.toggleTopicCompletion(
-                      uid,
-                      domainId,
-                      topic.id,
-                      !isCompleted,
-                      totalTopics,
-                    );
-                    if (context.mounted) Navigator.of(context).pop();
-                  },
-                  icon: Icon(
-                    isCompleted ? Icons.undo_rounded : Icons.check_circle_outline,
-                    size: 20,
+                if (isCompleted)
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      final db = ref.read(databaseRepositoryProvider);
+                      await db.toggleTopicCompletion(
+                        uid,
+                        domainId,
+                        topic.id,
+                        false,
+                        totalTopics,
+                      );
+                      if (context.mounted) Navigator.of(context).pop();
+                    },
+                    icon: const Icon(Icons.undo_rounded, size: 20),
+                    label: const Text('Mark Incomplete (Reset)'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.error,
+                    ),
+                  )
+                else
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).pop(); // Close current topic sheet
+                      _showQuizSheet(context, ref, topic.id, topic.title, domainId, totalTopics, uid);
+                    },
+                    icon: const Icon(Icons.quiz_rounded, size: 20),
+                    label: const Text('Take Checkpoint Quiz'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                    ),
                   ),
-                  label: Text(isCompleted ? 'Mark Incomplete' : 'Mark as Complete'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isCompleted ? AppColors.error : AppColors.success,
-                  ),
-                ),
               ],
             ],
           ),
@@ -383,4 +393,311 @@ class RoadmapDetailScreen extends ConsumerWidget {
       ),
     );
   }
+
+  void _showQuizSheet(
+    BuildContext context,
+    WidgetRef ref,
+    String topicId,
+    String topicTitle,
+    String domainId,
+    int totalTopics,
+    String uid,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => _CheckpointQuizFlow(
+        topicId: topicId,
+        topicTitle: topicTitle,
+        domainId: domainId,
+        totalTopics: totalTopics,
+        uid: uid,
+        ref: ref,
+      ),
+    );
+  }
 }
+
+// ── Checkpoint Quiz Flow Stateful Widget ──────────────────────────────────────
+class _CheckpointQuizFlow extends StatefulWidget {
+  final String topicId;
+  final String topicTitle;
+  final String domainId;
+  final int totalTopics;
+  final String uid;
+  final WidgetRef ref;
+
+  const _CheckpointQuizFlow({
+    required this.topicId,
+    required this.topicTitle,
+    required this.domainId,
+    required this.totalTopics,
+    required this.uid,
+    required this.ref,
+  });
+
+  @override
+  State<_CheckpointQuizFlow> createState() => _CheckpointQuizFlowState();
+}
+
+class _CheckpointQuizFlowState extends State<_CheckpointQuizFlow> {
+  int _currentIndex = 0;
+  int _score = 0;
+  int? _selectedAnswerIndex;
+  bool _quizFinished = false;
+
+  static final Map<String, List<_QuizQuestion>> _quizDatabase = {
+    'dsa_top1': [
+      _QuizQuestion(
+        question: 'What is the optimal time complexity to solve "Contains Duplicate" using a Set?',
+        options: ['O(1)', 'O(N)', 'O(N log N)', 'O(N^2)'],
+        correctIndex: 1,
+      ),
+      _QuizQuestion(
+        question: 'What is the space complexity of the optimal hash set approach?',
+        options: ['O(1)', 'O(N)', 'O(log N)'],
+        correctIndex: 1,
+      ),
+      _QuizQuestion(
+        question: 'If the input array is sorted, how can you solve it in O(1) space?',
+        options: ['Compare adjacent elements', 'Use a binary search tree', 'Use two pointers'],
+        correctIndex: 0,
+      ),
+    ],
+    'dsa_top2': [
+      _QuizQuestion(
+        question: 'What is the optimal time complexity of the Two Sum problem using a hash map?',
+        options: ['O(N^2)', 'O(N log N)', 'O(N)'],
+        correctIndex: 2,
+      ),
+      _QuizQuestion(
+        question: 'In the hash map solution, what do we store as the key in our map?',
+        options: ['The index of element', 'The complement (target - nums[i])', 'The actual element value'],
+        correctIndex: 2,
+      ),
+      _QuizQuestion(
+        question: 'What is the space complexity of the optimal Two Sum solution?',
+        options: ['O(1)', 'O(N)', 'O(N log N)'],
+        correctIndex: 1,
+      ),
+    ],
+    'web_top1': [
+      _QuizQuestion(
+        question: 'Which HTML tag represents self-contained content, like a blog post or news story?',
+        options: ['<section>', '<article>', '<aside>', '<div>'],
+        correctIndex: 1,
+      ),
+      _QuizQuestion(
+        question: 'What is the main purpose of semantic HTML tags?',
+        options: ['To make styling easier', 'To improve SEO and accessibility', 'To increase loading speed'],
+        correctIndex: 1,
+      ),
+      _QuizQuestion(
+        question: 'Which of the following is NOT a semantic HTML5 tag?',
+        options: ['<header>', '<nav>', '<span>', '<footer>'],
+        correctIndex: 2,
+      ),
+    ],
+  };
+
+  static final List<_QuizQuestion> _fallbackQuestions = [
+    _QuizQuestion(
+      question: 'Which time complexity represents linear logarithmic complexity?',
+      options: ['O(N)', 'O(N log N)', 'O(log N)', 'O(N^2)'],
+      correctIndex: 1,
+    ),
+    _QuizQuestion(
+      question: 'What is the purpose of Git version control?',
+      options: ['Compile code', 'Track changes in source code', 'Deploy websites automatically'],
+      correctIndex: 1,
+    ),
+    _QuizQuestion(
+      question: 'Which of these is a database management system?',
+      options: ['JSON', 'PostgreSQL', 'HTML5'],
+      correctIndex: 1,
+    ),
+  ];
+
+  List<_QuizQuestion> get _questions {
+    return _quizDatabase[widget.topicId] ?? _fallbackQuestions;
+  }
+
+  void _submitAnswer() {
+    if (_selectedAnswerIndex == null) return;
+
+    if (_selectedAnswerIndex == _questions[_currentIndex].correctIndex) {
+      _score++;
+    }
+
+    setState(() {
+      if (_currentIndex < _questions.length - 1) {
+        _currentIndex++;
+        _selectedAnswerIndex = null;
+      } else {
+        _quizFinished = true;
+      }
+    });
+  }
+
+  void _completeVerification() async {
+    final passed = _score >= 2;
+    if (passed) {
+      final db = widget.ref.read(databaseRepositoryProvider);
+      await db.toggleTopicCompletion(
+        widget.uid,
+        widget.domainId,
+        widget.topicId,
+        true,
+        widget.totalTopics,
+      );
+    }
+    if (mounted) Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_quizFinished) {
+      final passed = _score >= 2;
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 12),
+            Center(
+              child: Icon(
+                passed ? Icons.verified_rounded : Icons.cancel_rounded,
+                color: passed ? AppColors.success : AppColors.error,
+                size: 72,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              passed ? 'Verification Passed! 🎉' : 'Quiz Failed ❌',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'You scored $_score out of ${_questions.length} questions correctly.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: _completeVerification,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: passed ? AppColors.success : AppColors.primary,
+              ),
+              child: Text(passed ? 'Unlock Progress' : 'Close & Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final currentQuestion = _questions[_currentIndex];
+
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Checkpoint Challenge',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.accent),
+              ),
+              Text(
+                'Question ${_currentIndex + 1}/${_questions.length}',
+                style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            widget.topicTitle,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const Divider(height: 24),
+          Text(
+            currentQuestion.question,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, height: 1.4),
+          ),
+          const SizedBox(height: 16),
+          ...List.generate(currentQuestion.options.length, (idx) {
+            final option = currentQuestion.options[idx];
+            final isSelected = _selectedAnswerIndex == idx;
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: InkWell(
+                onTap: () {
+                  setState(() => _selectedAnswerIndex = idx);
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: isSelected ? AppColors.primary.withValues(alpha: 0.15) : AppColors.surfaceLight,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected ? AppColors.primary : AppColors.border,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                        color: isSelected ? AppColors.primary : AppColors.textMuted,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          option,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: isSelected ? AppColors.textPrimary : AppColors.textSecondary,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: _selectedAnswerIndex == null ? null : _submitAnswer,
+            child: Text(_currentIndex < _questions.length - 1 ? 'Next Question' : 'Submit Challenge'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuizQuestion {
+  final String question;
+  final List<String> options;
+  final int correctIndex;
+
+  _QuizQuestion({
+    required this.question,
+    required this.options,
+    required this.correctIndex,
+  });
+}
+
