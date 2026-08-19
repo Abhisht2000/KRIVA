@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
+import '../../models/user_model.dart';
 import '../../services/service_providers.dart';
+import '../admin/admin_dashboard_screen.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -124,6 +126,68 @@ class ProfileScreen extends ConsumerWidget {
                   ],
                 ),
               ),
+
+              // Admin Portal shortcut button
+              if (user.role == UserRole.admin || user.role == UserRole.lead) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AdminDashboardScreen(),
+                        ),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppColors.primary.withValues(alpha: 0.15),
+                            AppColors.accent.withValues(alpha: 0.15),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: AppColors.primary.withValues(alpha: 0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.admin_panel_settings_rounded, color: AppColors.accent, size: 24),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [
+                                Text(
+                                  'Admin Portal',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  'Manage members, roadmaps, and broadcasts',
+                                  style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
 
               // Following domains section
               Padding(

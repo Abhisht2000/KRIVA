@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,21 +12,42 @@ import 'services/service_providers.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-
-  // Initialize SharedPreferences
+  // Initialize SharedPreferences first
   final sharedPreferences = await SharedPreferences.getInstance();
 
-  // Lock to portrait orientation for a mobile-first experience
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
+  // Attempt Firebase init — falls back to Mock Mode on unsupported platforms
+  // (e.g. macOS desktop, web when not configured)
+  bool firebaseAvailable = false;
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    firebaseAvailable = true;
+    debugPrint('✅ Firebase initialized successfully.');
+  } on UnsupportedError catch (e) {
+    debugPrint('⚠️  Firebase not supported on this platform: $e');
+    debugPrint('   → Switching to Mock Mode automatically.');
+    // Save mock mode preference so providers read it correctly
+    await sharedPreferences.setBool('use_mock_mode_v1', true);
+  } catch (e) {
+    debugPrint('⚠️  Firebase init failed: $e');
+    debugPrint('   → Switching to Mock Mode automatically.');
+    await sharedPreferences.setBool('use_mock_mode_v1', true);
+  }
 
-  // Configure immersive status bar styling
+  // On mobile, lock to portrait orientation
+  if (!kIsWeb) {
+    try {
+      await SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ]);
+    } catch (_) {
+      // Desktop platforms don't support orientation lock — ignore
+    }
+  }
+
+  // Immersive status bar styling (mobile only)
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -38,26 +60,67 @@ void main() async {
   runApp(
     ProviderScope(
       overrides: [
-        // Inject the initialized SharedPreferences instance
         sharedPreferencesProvider.overrideWithValue(sharedPreferences),
       ],
-      child: const KrivaApp(),
+      child: KrivaApp(firebaseAvailable: firebaseAvailable),
     ),
   );
 }
 
 class KrivaApp extends ConsumerWidget {
-  const KrivaApp({super.key});
+  final bool firebaseAvailable;
+  const KrivaApp({super.key, required this.firebaseAvailable});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    final useMock = ref.watch(useMockModeProvider);
 
     return MaterialApp.router(
       title: 'KRIVA',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       routerConfig: router,
+      builder: (context, child) {
+        // Show a banner when running in Mock Mode so it's always obvious
+        if (useMock) {
+          return Stack(
+            children: [
+              child!,
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: IgnorePointer(
+                  child: SafeArea(
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: Container(
+                        margin: const EdgeInsets.only(top: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF59E0B).withValues(alpha: 0.9),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Text(
+                          '⚡ MOCK MODE — No Firebase',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+        return child!;
+      },
     );
   }
 }

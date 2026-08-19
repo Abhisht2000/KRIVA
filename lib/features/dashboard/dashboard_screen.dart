@@ -8,6 +8,9 @@ import '../../services/auth/mock_auth_repository.dart';
 import '../main_navigation_scaffold.dart';
 import '../../models/user_model.dart';
 import '../../models/broadcast_model.dart';
+import '../../widgets/glass_container.dart';
+import '../../widgets/radial_progress.dart';
+import '../leaderboard/leaderboard_screen.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -210,7 +213,15 @@ class DashboardScreen extends ConsumerWidget {
                       
                       // Streak Flame button
                       GestureDetector(
-                        onTap: () => _showStreakInfo(context, ref, user),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const LeaderboardScreen(),
+                            ),
+                          );
+                        },
+                        onLongPress: () => _showStreakInfo(context, ref, user),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                           decoration: BoxDecoration(
@@ -394,6 +405,96 @@ class DashboardScreen extends ConsumerWidget {
                 ),
               ),
 
+              // Agenda Widget: Next scheduled session RSVP'd by user
+              SliverToBoxAdapter(
+                child: Consumer(
+                  builder: (context, ref, _) {
+                    final sessionsAsync = ref.watch(sessionsProvider);
+                    
+                    return sessionsAsync.when(
+                      data: (sessions) {
+                        final now = DateTime.now();
+                        // Filter sessions that are upcoming and RSVP'd by current user
+                        final rsvpdSessions = sessions.where((s) {
+                          return s.dateTime.isAfter(now) && s.rsvps.contains(user.uid);
+                        }).toList();
+
+                        if (rsvpdSessions.isEmpty) return const SizedBox.shrink();
+
+                        // Sort to get the closest one
+                        rsvpdSessions.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+                        final nextSession = rsvpdSessions.first;
+
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Row(
+                                  children: const [
+                                    Icon(Icons.calendar_today_rounded, color: AppColors.accent, size: 18),
+                                    SizedBox(width: 6),
+                                    Text(
+                                      'Upcoming Agenda',
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              GlassContainer(
+                                color: AppColors.accent.withValues(alpha: 0.08),
+                                border: Border.all(color: AppColors.accent.withValues(alpha: 0.25)),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            nextSession.title,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                              color: AppColors.textPrimary,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Starts ${DateFormat('hh:mm a (MMM dd)').format(nextSession.dateTime)}',
+                                            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    ElevatedButton(
+                                      onPressed: () {
+                                        // Open session details or link
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppColors.accent,
+                                        foregroundColor: Colors.black,
+                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                      ),
+                                      child: const Text('Join Room'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      loading: () => const SizedBox.shrink(),
+                      error: (err, stack) => const SizedBox.shrink(),
+                    );
+                  },
+                ),
+              ),
+
               // 4. Learning Roadmaps progress header
               SliverToBoxAdapter(
                 child: Padding(
@@ -471,57 +572,61 @@ class DashboardScreen extends ConsumerWidget {
 
                                 return Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-                                  child: Card(
-                                    margin: EdgeInsets.zero,
+                                  child: GlassContainer(
+                                    padding: EdgeInsets.zero,
                                     child: InkWell(
                                       borderRadius: BorderRadius.circular(16),
                                       onTap: () {
                                         context.push('/roadmap/${domain.id}');
                                       },
                                       child: Padding(
-                                        padding: const EdgeInsets.all(20),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                                        padding: const EdgeInsets.all(18),
+                                        child: Row(
                                           children: [
-                                            Row(
-                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                              children: [
-                                                Expanded(
-                                                  child: Text(
+                                            // Glowing Radial Progress Ring
+                                            RadialProgress(
+                                              percentage: percent,
+                                              size: 54,
+                                              strokeWidth: 5.5,
+                                              activeColor: AppColors.secondary,
+                                              child: Text(
+                                                '${(percent * 100).toInt()}%',
+                                                style: const TextStyle(
+                                                  color: AppColors.textPrimary,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 11,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 16),
+                                            // Domain Info
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
                                                     domain.name,
                                                     style: const TextStyle(
                                                       fontWeight: FontWeight.bold,
-                                                      fontSize: 16,
+                                                      fontSize: 15,
                                                       color: AppColors.textPrimary,
                                                     ),
                                                   ),
-                                                ),
-                                                Text(
-                                                  '${(percent * 100).toInt()}%',
-                                                  style: const TextStyle(
-                                                    color: AppColors.secondary,
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 15,
+                                                  const SizedBox(height: 4),
+                                                  Text(
+                                                    '$completedCount tasks completed',
+                                                    style: const TextStyle(
+                                                      color: AppColors.textMuted,
+                                                      fontSize: 11,
+                                                    ),
                                                   ),
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              '$completedCount tasks completed',
-                                              style: const TextStyle(
-                                                color: AppColors.textMuted,
-                                                fontSize: 12,
+                                                ],
                                               ),
                                             ),
-                                            const SizedBox(height: 16),
-                                            ClipRRect(
-                                              borderRadius: BorderRadius.circular(4),
-                                              child: LinearProgressIndicator(
-                                                value: percent,
-                                                minHeight: 8,
-                                                color: AppColors.secondary,
-                                              ),
+                                            const Icon(
+                                              Icons.chevron_right_rounded,
+                                              color: AppColors.textMuted,
+                                              size: 20,
                                             ),
                                           ],
                                         ),

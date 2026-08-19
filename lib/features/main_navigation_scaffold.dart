@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/theme/app_colors.dart';
 import '../services/service_providers.dart';
-import '../models/user_model.dart';
 import 'dashboard/dashboard_screen.dart';
 import 'roadmap/roadmap_list_screen.dart';
+import 'collaboration/collaboration_screen.dart';
+import 'community/community_screen.dart';
 import 'profile/profile_screen.dart';
-import 'admin/admin_dashboard_screen.dart';
 
 // Provider to manage active navigation tab globally
 final navigationTabProvider = StateProvider<int>((ref) => 0);
@@ -25,14 +25,13 @@ class MainNavigationScaffold extends ConsumerWidget {
       );
     }
 
-    final bool showAdminTab = user.role == UserRole.admin || user.role == UserRole.lead;
-
-    // Define tabs
+    // Modern 5-tab Bottom Navigation (Dashboard, Roadmaps, Collab, Community, Profile)
     final List<Widget> screens = [
       const DashboardScreen(),
       const RoadmapListScreen(),
+      const CollaborationScreen(),
+      const CommunityScreen(),
       const ProfileScreen(),
-      if (showAdminTab) const AdminDashboardScreen(),
     ];
 
     final List<BottomNavigationBarItem> navItems = [
@@ -47,19 +46,23 @@ class MainNavigationScaffold extends ConsumerWidget {
         label: 'Roadmaps',
       ),
       const BottomNavigationBarItem(
+        icon: Icon(Icons.hub_outlined),
+        activeIcon: Icon(Icons.hub_rounded),
+        label: 'Collab',
+      ),
+      const BottomNavigationBarItem(
+        icon: Icon(Icons.people_outline_rounded),
+        activeIcon: Icon(Icons.people_alt_rounded),
+        label: 'Community',
+      ),
+      const BottomNavigationBarItem(
         icon: Icon(Icons.person_outline),
         activeIcon: Icon(Icons.person_rounded),
         label: 'Profile',
       ),
-      if (showAdminTab)
-        const BottomNavigationBarItem(
-          icon: Icon(Icons.admin_panel_settings_outlined),
-          activeIcon: Icon(Icons.admin_panel_settings_rounded),
-          label: 'Admin',
-        ),
     ];
 
-    // Handle index out of bounds when switching roles
+    // Handle index out of bounds safely
     int activeIndex = currentIndex;
     if (activeIndex >= screens.length) {
       activeIndex = screens.length - 1;
@@ -85,8 +88,8 @@ class MainNavigationScaffold extends ConsumerWidget {
           backgroundColor: AppColors.background.withValues(alpha: 0.95),
           selectedItemColor: AppColors.primary,
           unselectedItemColor: AppColors.textMuted,
-          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-          unselectedLabelStyle: const TextStyle(fontSize: 11),
+          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
+          unselectedLabelStyle: const TextStyle(fontSize: 10),
           items: navItems,
         ),
       ),

@@ -3,6 +3,10 @@ import '../../models/domain_model.dart';
 import '../../models/user_progress_model.dart';
 import '../../models/broadcast_model.dart';
 import '../../models/user_model.dart';
+import '../../models/session_model.dart';
+import '../../models/hackathon_model.dart';
+import '../../models/post_model.dart';
+import '../../models/message_model.dart';
 import 'database_repository.dart';
 
 class FirestoreDatabaseRepository implements DatabaseRepository {
@@ -198,6 +202,210 @@ class FirestoreDatabaseRepository implements DatabaseRepository {
         return UserModel.fromMap(doc.data(), doc.id);
       }).toList();
     });
+  }
+
+  // Sessions (Phase 2)
+  @override
+  Stream<List<SessionModel>> getSessions() {
+    return _firestore
+        .collection('sessions')
+        .orderBy('dateTime')
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        return SessionModel.fromMap(doc.data(), doc.id);
+      }).toList();
+    });
+  }
+
+  @override
+  Future<void> createSession(SessionModel session) async {
+    await _firestore.collection('sessions').doc(session.id).set(session.toMap());
+  }
+
+  @override
+  Future<void> toggleRSVP(String uid, String sessionId, bool rsvp) async {
+    await _firestore.collection('sessions').doc(sessionId).update({
+      'rsvps': rsvp ? FieldValue.arrayUnion([uid]) : FieldValue.arrayRemove([uid])
+    });
+  }
+
+  // Hackathons & Teams (Phase 2)
+  @override
+  Stream<List<HackathonModel>> getHackathons() {
+    return _firestore.collection('hackathons').snapshots().map((snapshot) {
+      return snapshot.docs.map((doc) {
+        return HackathonModel.fromMap(doc.data(), doc.id);
+      }).toList();
+    });
+  }
+
+  @override
+  Future<void> createHackathon(HackathonModel hackathon) async {
+    await _firestore.collection('hackathons').doc(hackathon.id).set(hackathon.toMap());
+  }
+
+  @override
+  Stream<List<TeamModel>> getTeams(String hackathonId) {
+    return _firestore
+        .collection('hackathons')
+        .doc(hackathonId)
+        .collection('teams')
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        return TeamModel.fromMap(doc.data(), doc.id);
+      }).toList();
+    });
+  }
+
+  @override
+  Future<void> createTeam(String hackathonId, TeamModel team) async {
+    await _firestore
+        .collection('hackathons')
+        .doc(hackathonId)
+        .collection('teams')
+        .doc(team.id)
+        .set(team.toMap());
+  }
+
+  @override
+  Future<void> requestToJoinTeam(String hackathonId, String teamId, String uid) async {
+    await _firestore
+        .collection('hackathons')
+        .doc(hackathonId)
+        .collection('teams')
+        .doc(teamId)
+        .update({
+      'pendingRequests': FieldValue.arrayUnion([uid])
+    });
+  }
+
+  @override
+  Future<void> manageJoinRequest(String hackathonId, String teamId, String uid, bool approve) async {
+    final docRef = _firestore
+        .collection('hackathons')
+        .doc(hackathonId)
+        .collection('teams')
+        .doc(teamId);
+
+    await _firestore.runTransaction((transaction) async {
+      final snapshot = await transaction.get(docRef);
+      if (!snapshot.exists) throw Exception('Team not found');
+
+      final team = TeamModel.fromMap(snapshot.data()!, snapshot.id);
+      final updatedPending = List<String>.from(team.pendingRequests)..remove(uid);
+      final updatedMembers = List<String>.from(team.memberUids);
+
+      if (approve) {
+        if (!updatedMembers.contains(uid)) updatedMembers.add(uid);
+      }
+
+      final newStatus = updatedMembers.length >= 4 ? 'full' : 'open';
+
+      transaction.update(docRef, {
+        'pendingRequests': updatedPending,
+        'memberUids': updatedMembers,
+        'status': newStatus,
+      });
+    });
+  }
+
+  // Community Feed & Comments (Phase 3)
+  @override
+  Stream<List<PostModel>> getPosts(String? tagFilter) {
+    Query query = _firestore.collection('posts').orderBy('createdAt', descending: true);
+    if (tagFilter != null && tagFilter != 'all') {
+      query = query.where('tag', isEqualTo: tagFilter);
+    }
+    return query.snapshots().map((snapshot) {
+      return snapshot.docs.map((doc) {
+        return PostModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+      }).toList();
+    });
+  }
+
+  @override
+  Future<void> createPost(PostModel post) async {
+    await _firestore.collection('posts').doc(post.id).set(post.toMap());
+  }
+
+  @override
+  Future<void> toggleLikePost(String uid, String postId) async {
+    final docRef = _firestore.collection('posts').doc(postId);
+    await _firestore.runTransaction((transaction) async {
+      final snapshot = await transaction.get(docRef);
+      if (!snapshot.exists) return;
+
+      final likes = List<String>.from(snapshot.data()?['likes'] ?? []);
+      if (likes.contains(uid)) {
+        likes.remove(uid);
+      } else {
+        likes.add(uid);
+      }
+      transaction.update(docRef, {'likes': likes});
+    });
+  }
+
+  @override
+  Stream<List<CommentModel>> getComments(String postId) {
+    return _firestore
+        .collection('posts')
+        .doc(postId)
+        .collection('comments')
+        .orderBy('createdAt')
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        return CommentModel.fromMap(doc.data(), doc.id);
+      }).toList();
+    });
+  }
+
+  @override
+  Future<void> addComment(String postId, CommentModel comment) async {
+    final postRef = _firestore.collection('posts').doc(postId);
+    final commentRef = postRef.collection('comments').doc(comment.id);
+
+    await _firestore.runTransaction((transaction) async {
+      transaction.set(commentRef, comment.toMap());
+      transaction.update(postRef, {'commentCount': FieldValue.increment(1)});
+    });
+  }
+
+  // Chats & Messaging (Phase 3)
+  @override
+  Stream<List<ChatChannelModel>> getChannels(UserModel user) {
+    return _firestore.collection('channels').snapshots().map((snapshot) {
+      return snapshot.docs.map((doc) {
+        return ChatChannelModel.fromMap(doc.data(), doc.id);
+      }).toList();
+    });
+  }
+
+  @override
+  Stream<List<MessageModel>> getMessages(String channelId) {
+    return _firestore
+        .collection('channels')
+        .doc(channelId)
+        .collection('messages')
+        .orderBy('sentAt')
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        return MessageModel.fromMap(doc.data(), doc.id);
+      }).toList();
+    });
+  }
+
+  @override
+  Future<void> sendMessage(String channelId, MessageModel message) async {
+    await _firestore
+        .collection('channels')
+        .doc(channelId)
+        .collection('messages')
+        .doc(message.id)
+        .set(message.toMap());
   }
 
   @override

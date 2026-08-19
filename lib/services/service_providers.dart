@@ -10,6 +10,10 @@ import '../models/user_model.dart';
 import '../models/domain_model.dart';
 import '../models/user_progress_model.dart';
 import '../models/broadcast_model.dart';
+import '../models/session_model.dart';
+import '../models/hackathon_model.dart';
+import '../models/post_model.dart';
+import '../models/message_model.dart';
 
 // Provider for SharedPreferences (initialized in main.dart)
 final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
@@ -97,4 +101,59 @@ final broadcastsProvider = StreamProvider<List<BroadcastModel>>((ref) {
   
   final dbRepo = ref.watch(databaseRepositoryProvider);
   return dbRepo.getBroadcasts(user);
+});
+
+// Sessions Stream Provider
+final sessionsProvider = StreamProvider<List<SessionModel>>((ref) {
+  final dbRepo = ref.watch(databaseRepositoryProvider);
+  return dbRepo.getSessions();
+});
+
+// Hackathons Stream Provider
+final hackathonsProvider = StreamProvider<List<HackathonModel>>((ref) {
+  final dbRepo = ref.watch(databaseRepositoryProvider);
+  return dbRepo.getHackathons();
+});
+
+// Teams Stream Provider
+final teamsProvider = StreamProvider.family<List<TeamModel>, String>((ref, hackathonId) {
+  final dbRepo = ref.watch(databaseRepositoryProvider);
+  return dbRepo.getTeams(hackathonId);
+});
+
+// Social Posts Stream Provider
+final postsProvider = StreamProvider.family<List<PostModel>, String?>((ref, tagFilter) {
+  final dbRepo = ref.watch(databaseRepositoryProvider);
+  return dbRepo.getPosts(tagFilter);
+});
+
+// Comments Stream Provider
+final commentsProvider = StreamProvider.family<List<CommentModel>, String>((ref, postId) {
+  final dbRepo = ref.watch(databaseRepositoryProvider);
+  return dbRepo.getComments(postId);
+});
+
+// Chat Channels Stream Provider
+final channelsProvider = StreamProvider<List<ChatChannelModel>>((ref) {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return const Stream.empty();
+  final dbRepo = ref.watch(databaseRepositoryProvider);
+  return dbRepo.getChannels(user);
+});
+
+// Messages Stream Provider
+final messagesProvider = StreamProvider.family<List<MessageModel>, String>((ref, channelId) {
+  final dbRepo = ref.watch(databaseRepositoryProvider);
+  return dbRepo.getMessages(channelId);
+});
+
+// Leaderboard Stream Provider (aggregates users sorted by streak count)
+final leaderboardProvider = StreamProvider<List<UserModel>>((ref) {
+  final dbRepo = ref.watch(databaseRepositoryProvider);
+  return dbRepo.getMembers().map((members) {
+    // Sort descending by streak count
+    final sorted = List<UserModel>.from(members);
+    sorted.sort((a, b) => b.streak.count.compareTo(a.streak.count));
+    return sorted;
+  });
 });

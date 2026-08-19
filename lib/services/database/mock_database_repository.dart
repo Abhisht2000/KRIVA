@@ -3,6 +3,10 @@ import '../../models/domain_model.dart';
 import '../../models/user_progress_model.dart';
 import '../../models/broadcast_model.dart';
 import '../../models/user_model.dart';
+import '../../models/session_model.dart';
+import '../../models/hackathon_model.dart';
+import '../../models/post_model.dart';
+import '../../models/message_model.dart';
 import 'database_repository.dart';
 
 class MockDatabaseRepository implements DatabaseRepository {
@@ -10,6 +14,15 @@ class MockDatabaseRepository implements DatabaseRepository {
   final _domainController = StreamController<List<DomainModel>>.broadcast();
   final _broadcastController = StreamController<List<BroadcastModel>>.broadcast();
   final _membersController = StreamController<List<UserModel>>.broadcast();
+  
+  // Phase 2/3 stream controllers
+  final _sessionsController = StreamController<List<SessionModel>>.broadcast();
+  final _hackathonsController = StreamController<List<HackathonModel>>.broadcast();
+  final _teamsControllers = <String, StreamController<List<TeamModel>>>{};
+  final _postsController = StreamController<List<PostModel>>.broadcast();
+  final _commentsControllers = <String, StreamController<List<CommentModel>>>{};
+  final _channelsController = StreamController<List<ChatChannelModel>>.broadcast();
+  final _messagesControllers = <String, StreamController<List<MessageModel>>>{};
   
   // Specific topic and progress streams
   final _progressControllers = <String, StreamController<UserProgressModel?>>{};
@@ -23,6 +36,15 @@ class MockDatabaseRepository implements DatabaseRepository {
   final List<BroadcastModel> _broadcasts = [];
   final List<UserModel> _members = [];
   final Map<String, UserProgressModel> _progressStore = {};
+  
+  // Phase 2/3 Storage
+  final List<SessionModel> _sessions = [];
+  final List<HackathonModel> _hackathons = [];
+  final Map<String, List<TeamModel>> _teamsStore = {};
+  final List<PostModel> _posts = [];
+  final Map<String, List<CommentModel>> _commentsStore = {};
+  final List<ChatChannelModel> _channels = [];
+  final Map<String, List<MessageModel>> _messagesStore = {};
 
   MockDatabaseRepository() {
     _initMockData();
@@ -198,6 +220,158 @@ class MockDatabaseRepository implements DatabaseRepository {
       },
       percentComplete: 0.33,
     );
+
+    // 7. Initial Sessions (Phase 2)
+    _sessions.addAll([
+      SessionModel(
+        id: 'sess1',
+        title: 'React & Next.js Advanced Architecture',
+        description: 'Deep dive into App Router, Server Actions, caching mechanisms, and optimizing web applications for scale.',
+        domainTag: 'web_dev',
+        dateTime: DateTime.now().add(const Duration(hours: 2)), // Today in 2 hours
+        link: 'https://meet.google.com/abc-defg-hij',
+        createdBy: 'Elena Rostova',
+        rsvps: ['user_mem001'],
+        attendees: [],
+      ),
+      SessionModel(
+        id: 'sess2',
+        title: 'Introduction to Neural Networks',
+        description: 'Understand the math behind perceptrons, activation functions, backpropagation, and build a simple neural net from scratch.',
+        domainTag: 'ml',
+        dateTime: DateTime.now().add(const Duration(days: 1, hours: 3)), // Tomorrow
+        link: 'https://zoom.us/j/123456789',
+        createdBy: 'Club President',
+        rsvps: [],
+        attendees: [],
+      ),
+      SessionModel(
+        id: 'sess3',
+        title: 'Binary Trees & Graph Traversals',
+        description: 'Weekly algorithm code review. We will solve DFS, BFS, and Dijkstra optimization patterns on LeetCode.',
+        domainTag: 'dsa',
+        dateTime: DateTime.now().subtract(const Duration(days: 2)), // 2 days ago
+        link: 'https://meet.google.com/xyz-pdqr-wuv',
+        createdBy: 'Elena Rostova',
+        rsvps: ['user_mem001', 'user_mem002'],
+        attendees: ['user_mem001'],
+      ),
+    ]);
+
+    // 8. Initial Hackathons & Teams (Phase 2)
+    _hackathons.add(
+      HackathonModel(
+        id: 'hack1',
+        title: 'KRIVA Winter Hackathon 2026',
+        description: 'The annual flagship dev challenge. Team up to build open-source community solutions for educational and utility needs. Win exciting prizes!',
+        startDate: DateTime.now().add(const Duration(days: 3)),
+        endDate: DateTime.now().add(const Duration(days: 5)),
+        teamSizeLimit: 4,
+      ),
+    );
+    
+    _teamsStore['hack1'] = [
+      TeamModel(
+        id: 'team1',
+        name: 'Algorithm Avengers',
+        leadUid: 'user_led001',
+        memberUids: ['user_led001', 'user_mem002'],
+        requiredSkills: ['Backend', 'Python', 'ML Engine'],
+        pendingRequests: ['user_mem001'],
+        status: 'open',
+      ),
+      TeamModel(
+        id: 'team2',
+        name: 'Web Wizards',
+        leadUid: 'user_mem001',
+        memberUids: ['user_mem001'],
+        requiredSkills: ['UI/UX', 'React', 'TailwindCSS'],
+        pendingRequests: [],
+        status: 'open',
+      ),
+    ];
+
+    // 9. Initial Posts & Comments (Phase 3)
+    _posts.addAll([
+      PostModel(
+        id: 'post1',
+        authorUid: 'user_led001',
+        authorName: 'Elena Rostova',
+        authorPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Elena',
+        text: 'Just finished structuring the Arrays & Hashing topics for the DSA track! Check it out and let me know if you want any specific resources added.',
+        tag: 'dsa',
+        likes: ['user_mem001', 'user_mem002'],
+        commentCount: 2,
+        createdAt: DateTime.now().subtract(const Duration(hours: 5)),
+      ),
+      PostModel(
+        id: 'post2',
+        authorUid: 'user_mem001',
+        authorName: 'Abhisht Singh',
+        authorPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Abhisht',
+        text: 'Anyone planning to build a Flutter application for the Winter Hackathon? Looking for a UI/UX designer to join our team "Web Wizards"!',
+        tag: 'hackathon',
+        likes: [],
+        commentCount: 0,
+        createdAt: DateTime.now().subtract(const Duration(hours: 1)),
+      ),
+    ]);
+
+    _commentsStore['post1'] = [
+      CommentModel(
+        id: 'c1',
+        authorUid: 'user_mem001',
+        authorName: 'Abhisht Singh',
+        authorPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Abhisht',
+        text: 'This is super helpful Elena! The NeetCode video links are awesome.',
+        createdAt: DateTime.now().subtract(const Duration(hours: 4)),
+      ),
+      CommentModel(
+        id: 'c2',
+        authorUid: 'user_mem002',
+        authorName: 'Jane Doe',
+        authorPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Jane',
+        text: 'Thanks Elena, starting topic 1 today!',
+        createdAt: DateTime.now().subtract(const Duration(hours: 3)),
+      ),
+    ];
+
+    // 10. Initial Channels & Messages (Phase 3)
+    _channels.addAll([
+      ChatChannelModel(id: 'chan_global', name: '#announcements', type: 'direct'),
+      ChatChannelModel(id: 'chan_dsa', name: '#dsa_discussion', type: 'domain', domainId: 'dsa'),
+      ChatChannelModel(id: 'chan_web', name: '#web_dev_discussion', type: 'domain', domainId: 'web_dev'),
+    ]);
+
+    _messagesStore['chan_global'] = [
+      MessageModel(
+        id: 'msg1',
+        senderUid: 'user_led001',
+        senderName: 'Elena Rostova',
+        senderPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Elena',
+        text: 'Welcome to the global announcements channel! Please keep discussions to domain-specific channels.',
+        sentAt: DateTime.now().subtract(const Duration(days: 2)),
+      ),
+    ];
+
+    _messagesStore['chan_dsa'] = [
+      MessageModel(
+        id: 'msg2',
+        senderUid: 'user_mem001',
+        senderName: 'Abhisht Singh',
+        senderPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Abhisht',
+        text: 'Stuck on Group Anagrams optimization. Should I use sorting or frequency counts?',
+        sentAt: DateTime.now().subtract(const Duration(hours: 3)),
+      ),
+      MessageModel(
+        id: 'msg3',
+        senderUid: 'user_led001',
+        senderName: 'Elena Rostova',
+        senderPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Elena',
+        text: 'Frequency counts will give you O(N * K) time. Sorting takes O(N * K log K). Try mapping characters!',
+        sentAt: DateTime.now().subtract(const Duration(hours: 2, minutes: 30)),
+      ),
+    ];
   }
 
   // Domain Stream
@@ -346,6 +520,200 @@ class MockDatabaseRepository implements DatabaseRepository {
     _broadcasts.add(broadcast);
     _sortBroadcasts();
     _broadcastController.add(_broadcasts);
+  }
+
+  // Sessions (Phase 2)
+  @override
+  Stream<List<SessionModel>> getSessions() {
+    Timer.run(() => _sessionsController.add(_sessions));
+    return _sessionsController.stream;
+  }
+
+  @override
+  Future<void> createSession(SessionModel session) async {
+    _sessions.add(session);
+    _sessionsController.add(_sessions);
+  }
+
+  @override
+  Future<void> toggleRSVP(String uid, String sessionId, bool rsvp) async {
+    final index = _sessions.indexWhere((s) => s.id == sessionId);
+    if (index != -1) {
+      final session = _sessions[index];
+      final updatedRsvps = List<String>.from(session.rsvps);
+      if (rsvp) {
+        if (!updatedRsvps.contains(uid)) updatedRsvps.add(uid);
+      } else {
+        updatedRsvps.remove(uid);
+      }
+      _sessions[index] = session.copyWith(rsvps: updatedRsvps);
+      _sessionsController.add(_sessions);
+    }
+  }
+
+  // Hackathons & Teams (Phase 2)
+  @override
+  Stream<List<HackathonModel>> getHackathons() {
+    Timer.run(() => _hackathonsController.add(_hackathons));
+    return _hackathonsController.stream;
+  }
+
+  @override
+  Future<void> createHackathon(HackathonModel hackathon) async {
+    _hackathons.add(hackathon);
+    _hackathonsController.add(_hackathons);
+  }
+
+  @override
+  Stream<List<TeamModel>> getTeams(String hackathonId) {
+    if (!_teamsControllers.containsKey(hackathonId)) {
+      _teamsControllers[hackathonId] = StreamController<List<TeamModel>>.broadcast();
+    }
+    final teams = _teamsStore[hackathonId] ?? [];
+    Timer.run(() => _teamsControllers[hackathonId]!.add(teams));
+    return _teamsControllers[hackathonId]!.stream;
+  }
+
+  @override
+  Future<void> createTeam(String hackathonId, TeamModel team) async {
+    final teams = _teamsStore[hackathonId] ?? [];
+    teams.add(team);
+    _teamsStore[hackathonId] = teams;
+    if (_teamsControllers.containsKey(hackathonId)) {
+      _teamsControllers[hackathonId]!.add(teams);
+    }
+  }
+
+  @override
+  Future<void> requestToJoinTeam(String hackathonId, String teamId, String uid) async {
+    final teams = _teamsStore[hackathonId] ?? [];
+    final idx = teams.indexWhere((t) => t.id == teamId);
+    if (idx != -1) {
+      final team = teams[idx];
+      if (!team.pendingRequests.contains(uid) && !team.memberUids.contains(uid)) {
+        final pending = List<String>.from(team.pendingRequests)..add(uid);
+        teams[idx] = team.copyWith(pendingRequests: pending);
+        _teamsStore[hackathonId] = teams;
+        if (_teamsControllers.containsKey(hackathonId)) {
+          _teamsControllers[hackathonId]!.add(teams);
+        }
+      }
+    }
+  }
+
+  @override
+  Future<void> manageJoinRequest(String hackathonId, String teamId, String uid, bool approve) async {
+    final teams = _teamsStore[hackathonId] ?? [];
+    final idx = teams.indexWhere((t) => t.id == teamId);
+    if (idx != -1) {
+      final team = teams[idx];
+      final pending = List<String>.from(team.pendingRequests)..remove(uid);
+      List<String> members = List<String>.from(team.memberUids);
+      if (approve) {
+        if (!members.contains(uid)) members.add(uid);
+      }
+      final newStatus = members.length >= 4 ? 'full' : 'open'; // limit mock to 4
+      teams[idx] = team.copyWith(
+        pendingRequests: pending,
+        memberUids: members,
+        status: newStatus,
+      );
+      _teamsStore[hackathonId] = teams;
+      if (_teamsControllers.containsKey(hackathonId)) {
+        _teamsControllers[hackathonId]!.add(teams);
+      }
+    }
+  }
+
+  // Community Feed & Comments (Phase 3)
+  @override
+  Stream<List<PostModel>> getPosts(String? tagFilter) {
+    Timer.run(() {
+      if (tagFilter == null || tagFilter == 'all') {
+        _postsController.add(_posts);
+      } else {
+        _postsController.add(_posts.where((p) => p.tag == tagFilter).toList());
+      }
+    });
+    return _postsController.stream;
+  }
+
+  @override
+  Future<void> createPost(PostModel post) async {
+    _posts.insert(0, post); // Newest first
+    _postsController.add(_posts);
+  }
+
+  @override
+  Future<void> toggleLikePost(String uid, String postId) async {
+    final idx = _posts.indexWhere((p) => p.id == postId);
+    if (idx != -1) {
+      final post = _posts[idx];
+      final likes = List<String>.from(post.likes);
+      if (likes.contains(uid)) {
+        likes.remove(uid);
+      } else {
+        likes.add(uid);
+      }
+      _posts[idx] = post.copyWith(likes: likes);
+      _postsController.add(_posts);
+    }
+  }
+
+  @override
+  Stream<List<CommentModel>> getComments(String postId) {
+    if (!_commentsControllers.containsKey(postId)) {
+      _commentsControllers[postId] = StreamController<List<CommentModel>>.broadcast();
+    }
+    final comments = _commentsStore[postId] ?? [];
+    Timer.run(() => _commentsControllers[postId]!.add(comments));
+    return _commentsControllers[postId]!.stream;
+  }
+
+  @override
+  Future<void> addComment(String postId, CommentModel comment) async {
+    final comments = _commentsStore[postId] ?? [];
+    comments.add(comment);
+    _commentsStore[postId] = comments;
+    if (_commentsControllers.containsKey(postId)) {
+      _commentsControllers[postId]!.add(comments);
+    }
+
+    // Update comment count on post
+    final postIdx = _posts.indexWhere((p) => p.id == postId);
+    if (postIdx != -1) {
+      _posts[postIdx] = _posts[postIdx].copyWith(
+        commentCount: _posts[postIdx].commentCount + 1,
+      );
+      _postsController.add(_posts);
+    }
+  }
+
+  // Chats & Messaging (Phase 3)
+  @override
+  Stream<List<ChatChannelModel>> getChannels(UserModel user) {
+    Timer.run(() => _channelsController.add(_channels));
+    return _channelsController.stream;
+  }
+
+  @override
+  Stream<List<MessageModel>> getMessages(String channelId) {
+    if (!_messagesControllers.containsKey(channelId)) {
+      _messagesControllers[channelId] = StreamController<List<MessageModel>>.broadcast();
+    }
+    final messages = _messagesStore[channelId] ?? [];
+    Timer.run(() => _messagesControllers[channelId]!.add(messages));
+    return _messagesControllers[channelId]!.stream;
+  }
+
+  @override
+  Future<void> sendMessage(String channelId, MessageModel message) async {
+    final messages = _messagesStore[channelId] ?? [];
+    messages.add(message);
+    _messagesStore[channelId] = messages;
+    if (_messagesControllers.containsKey(channelId)) {
+      _messagesControllers[channelId]!.add(messages);
+    }
   }
 
   // Admin Roadmaps setup
